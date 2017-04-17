@@ -1,0 +1,44 @@
+"Phrases"
+{
+	"Chat Auras Disabled"
+	{
+		"en"	"[Aura] You can no longer see Auras"
+	}
+	
+	"Chat Auras Enabled"
+	{
+		"en"	"[Aura] You can now see Auras"
+	}
+	
+	"Aura Menu Title"
+	{
+		"en"	"Select an Aura:"
+	}
+	
+	"Chat Reload Failed"
+	{
+		"en"	"[Aura] Auras failed to reload"
+	}
+	
+	"Chat Reloaded Auras"
+	{
+		"en"	"[Aura] Auras have been reloaded"
+	}
+	
+	"Console Reload Auras"
+	{
+		"#format"	"{1:i}"
+		"en"	"[Aura] config has loaded {1} auras"
+	}
+	
+	"FailState Load Auras"
+	{
+		"en"	"[Aura] Auras failed to load"
+	}
+	
+	"SQLite Callback"
+	{
+		"#format"	"{1:i}"
+		"en"	"[Aura] cookies of {1} players were removed due to the config being reload"
+	}
+}
