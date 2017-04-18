@@ -15,6 +15,11 @@
 		"en"	"Select an Aura:"
 	}
 	
+	"No Aura"
+	{
+		"en"	"No Aura"
+	}
+	
 	"Chat Reload Failed"
 	{
 		"en"	"[Aura] Auras failed to reload"

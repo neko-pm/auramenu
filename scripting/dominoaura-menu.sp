@@ -28,14 +28,15 @@ enum CustomParticles
 	iCacheID,
 }
 
-#define MAX_CFG_PARTICLES 64
+#define CS_TEAM_SPECTATOR 1
+#define MAX_CFG_PARTICLES 256
 
-int g_eCustomParticles[MAX_CFG_PARTICLES][CustomParticles];
-int g_iCustomParticlesCount = 0;
-int g_unClientParticle[MAXPLAYERS+1] = {INVALID_ENT_REFERENCE, ...};
+int g_eCustomParticles[MAX_CFG_PARTICLES+1][CustomParticles];
+int g_iCustomParticlesCount;
+int g_iClientParticleEntRef[MAXPLAYERS+1] = {INVALID_ENT_REFERENCE, ...};
 
 Handle g_hCookieIndex;
-int g_iAuraIndex[MAXPLAYERS+1] = {-1, ...};
+int g_iAuraIndex[MAXPLAYERS+1];
 
 Handle g_hCookieBlocked;
 bool g_bBlockTransmit[MAXPLAYERS+1] = false;
@@ -72,9 +73,10 @@ public void OnPluginStart()
 	
 	HookEvent("player_spawn", Particles_PlayerSpawn);
 	HookEvent("player_death", Particles_PlayerDeath);
+	HookEvent("player_team", Particles_PlayerTeam, EventHookMode_Post);
 	
 	//for late load
-	for(int i = 1; i <= MaxClients; i++){ if(IsValidClient(i) && IsPlayerAlive(i)){ OnClientCookiesCached(i); CreateCustomParticle(i);}}
+	for(int i = 1; i <= MaxClients; i++){ if(IsValidClient(i) && IsPlayerAlive(i)){ OnClientCookiesCached(i); CreateCustomParticle(i); }}
 }
 
 public void OnPluginEnd()
@@ -134,6 +136,18 @@ public int MenuHandler_Aura(Menu menu, MenuAction action, int param1, int param2
 			
 			SetCookie(param1, g_hCookieIndex, g_iAuraIndex[param1]);
 		}
+		case MenuAction_DisplayItem:
+		{
+			char[] sDisplay = new char[64];
+			menu.GetItem(param2, "", 0, _, sDisplay, 64);
+			
+			if(StrEqual(sDisplay, "NoAuraTranslation", false))
+			{
+				char[] sBuffer = new char[64];
+				FormatEx(sBuffer, 64, "%T", "No Aura", param1);
+				return RedrawMenuItem(sBuffer);
+			}
+		}
 		case MenuAction_DrawItem:
 		{
 			char[] sAuth = new char[32];
@@ -141,15 +155,19 @@ public int MenuHandler_Aura(Menu menu, MenuAction action, int param1, int param2
 			
 			char[] info = new char[32];
 			menu.GetItem(param2, info, 32);
- 			
+			
  			int iIndex = StringToInt(info);
  			
-			if (StrEqual(sAuth, g_eCustomParticles[iIndex][szSteamID], false))
+			if(StrEqual(sAuth, g_eCustomParticles[iIndex][szSteamID], false))
 			{
 				return ITEMDRAW_DEFAULT;
 			}
 			int bFlags = ReadFlagString(g_eCustomParticles[iIndex][szAdminFlags]);
 			if(bFlags > 0 && CheckCommandAccess(param1, "cmd_aura_access_override", bFlags))
+			{
+				return ITEMDRAW_DEFAULT;
+			}
+			if(bFlags == 0 && StrEqual("", g_eCustomParticles[iIndex][szSteamID], false))
 			{
 				return ITEMDRAW_DEFAULT;
 			}
@@ -188,12 +206,11 @@ public Action Command_HideAuras(int iClient, int iArgs)
 
 public Action Command_ReloadAuras(int iClient, int iArgs)
 {
-	g_iCustomParticlesCount = 0;
 	if(!LoadAurasFromConfig())
 		ReplyToCommand(iClient, "%t", "Chat Reload Failed"); //"\x01[\x0BAura\x01] \x04Auras\x01 failed to reload";
 	
-	//reset all g_iAuraIndex[] to -1 and remove existing auras
-	for(int i = 1; i <= MaxClients; i++){ if(IsValidClient(i)){ g_iAuraIndex[i] = -1; if(IsPlayerAlive(i)){ RemoveCustomParticle(i); }}}
+	//reset all g_iAuraIndex[] to 0 and remove existing auras
+	for(int i = 1; i <= MaxClients; i++){ if(IsValidClient(i)){ g_iAuraIndex[i] = 0; if(IsPlayerAlive(i)){ RemoveCustomParticle(i); }}}
 	
 	//SQLite query to remove all aura_index cookies, this stops people having new auras that they're not allowed to have.
 	char[] query = new char[512];
@@ -250,9 +267,9 @@ void setFlags(int edict)
 
 public void PrecacheParticles()
 {
-	if(g_iCustomParticlesCount > 0)
+	if(g_iCustomParticlesCount > 1)
 	{
-		for(int i=0;i<g_iCustomParticlesCount;++i)
+		for(int i = 1; i < g_iCustomParticlesCount; i++)
 		{
 			if(!IsModelPrecached(g_eCustomParticles[i][szParticleName]))
 			{	
@@ -266,16 +283,25 @@ public void PrecacheParticles()
 public Action Particles_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
 {
 	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
-	if(!IsClientInGame(iClient) || !IsPlayerAlive(iClient) || !(2<=GetClientTeam(iClient)<=3))
+	if(!IsClientInGame(iClient) || !IsPlayerAlive(iClient) || !(GetClientTeam(iClient) > CS_TEAM_SPECTATOR))
 		return Plugin_Continue;
 	
-	if(IsValidClient(iClient))
-		CreateTimer(g_cvCreateTimer.FloatValue, Timer_CreateParticle, iClient);
+	CreateTimer(g_cvCreateTimer.FloatValue, Timer_CreateParticle, iClient);
 
 	return Plugin_Continue;		
 }
 
 public Action Particles_PlayerDeath(Handle event, const char[] name, bool dontBroadcast)
+{
+	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
+	
+	if(IsValidClient(iClient))
+		RemoveCustomParticle(iClient);
+	
+	return Plugin_Continue;
+}
+
+public Action Particles_PlayerTeam(Handle event, const char[] name, bool dontBroadcast)
 {
 	int iClient = GetClientOfUserId(GetEventInt(event, "userid"));
 	
@@ -296,7 +322,7 @@ void CreateCustomParticle(int iClient)
 	if(!IsValidClient(iClient))
 		return;
 	
-	if(g_iAuraIndex[iClient] < 0)
+	if(g_iAuraIndex[iClient] < 1)
 		return;
 	
 	RemoveCustomParticle(iClient);
@@ -304,7 +330,7 @@ void CreateCustomParticle(int iClient)
 	if(!IsPlayerAlive(iClient))
 		return;
 	
-	if(g_unClientParticle[iClient] != INVALID_ENT_REFERENCE)
+	if(g_iClientParticleEntRef[iClient] != INVALID_ENT_REFERENCE)
 		return;
 			
 	int m_iData = g_iAuraIndex[iClient];
@@ -330,7 +356,7 @@ void CreateCustomParticle(int iClient)
 		
 		ActivateEntity(m_unEnt);
 		
-		g_unClientParticle[iClient] = EntIndexToEntRef(m_unEnt);
+		g_iClientParticleEntRef[iClient] = EntIndexToEntRef(m_unEnt);
 		
 		SetEdictFlags(m_unEnt, GetEdictFlags(m_unEnt)&(~FL_EDICT_ALWAYS)); //to allow settransmit hooks
 		SDKHookEx(m_unEnt, SDKHook_SetTransmit, Hook_SetTransmit);
@@ -339,11 +365,12 @@ void CreateCustomParticle(int iClient)
 
 public void RemoveCustomParticle(int iClient)
 {
-	if(g_unClientParticle[iClient] == INVALID_ENT_REFERENCE)
+	if(g_iClientParticleEntRef[iClient] == INVALID_ENT_REFERENCE)
 		return;
 	
-	int m_unEnt = EntRefToEntIndex(g_unClientParticle[iClient]);
-	g_unClientParticle[iClient] = INVALID_ENT_REFERENCE;
+	int m_unEnt = EntRefToEntIndex(g_iClientParticleEntRef[iClient]);
+	g_iClientParticleEntRef[iClient] = INVALID_ENT_REFERENCE;
+	
 	if(!IsValidEntity(m_unEnt))
 		return;
 	
@@ -359,12 +386,17 @@ public Action KillCustomParticle(Handle timer, int m_unEnt)
 
 public void OnClientDisconnect(int iClient)
 {
-	g_iAuraIndex[iClient] = -1;
+	g_iAuraIndex[iClient] = 0;
 }
 
 /* CONFIG */
 public bool LoadAurasFromConfig()
 {
+	g_iCustomParticlesCount = 0;
+	
+	strcopy(g_eCustomParticles[g_iCustomParticlesCount][szAuraName], PLATFORM_MAX_PATH, "NoAuraTranslation");
+	g_iCustomParticlesCount++;
+	
 	KeyValues kv = new KeyValues("dominoaura");
 	kv.ImportFromFile(sPath);
 
@@ -390,7 +422,7 @@ public bool LoadAurasFromConfig()
 	
 	PrecacheParticles();
 	
-	PrintToServer("%T", "Console Reload Auras", LANG_SERVER, g_iCustomParticlesCount);
+	PrintToServer("%T", "Console Reload Auras", LANG_SERVER, g_iCustomParticlesCount-1);
 	
 	delete kv;
 	return true;
