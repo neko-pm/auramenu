@@ -269,16 +269,46 @@ public void PrecacheParticles()
 {
 	if(g_iCustomParticlesCount > 1)
 	{
+		PrecacheEffect("ParticleEffect");
+		
 		for(int i = 1; i < g_iCustomParticlesCount; i++)
 		{
 			if(!IsModelPrecached(g_eCustomParticles[i][szParticleName]))
 			{	
 				g_eCustomParticles[i][iCacheID] = PrecacheGeneric(g_eCustomParticles[i][szParticleName], true);
 				AddFileToDownloadsTable(g_eCustomParticles[i][szParticleName]);
+				PrecacheParticleEffect(g_eCustomParticles[i][szEffectName]);
 			}
 		}
 	}
 }
+
+// https://forums.alliedmods.net/showpost.php?p=2471747&postcount=4
+stock void PrecacheEffect(const char[] sEffectName)
+{
+    static int table = INVALID_STRING_TABLE;
+    
+    if (table == INVALID_STRING_TABLE)
+    {
+        table = FindStringTable("EffectDispatch");
+    }
+    bool save = LockStringTables(false);
+    AddToStringTable(table, sEffectName);
+    LockStringTables(save);
+}
+
+stock void PrecacheParticleEffect(const char[] sEffectName)
+{
+    static int table = INVALID_STRING_TABLE;
+    
+    if (table == INVALID_STRING_TABLE)
+    {
+        table = FindStringTable("ParticleEffectNames");
+    }
+    bool save = LockStringTables(false);
+    AddToStringTable(table, sEffectName);
+    LockStringTables(save);
+}  
 
 public Action Particles_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
 {
@@ -313,7 +343,7 @@ public Action Particles_PlayerTeam(Handle event, const char[] name, bool dontBro
 
 public Action Timer_CreateParticle(Handle timer, any iClient)
 {
-	if(IsPlayerAlive(iClient))
+	if(IsPlayerAlive(iClient) && IsClientInGame(iClient))
 		CreateCustomParticle(iClient);		
 }
 
