@@ -269,16 +269,20 @@ public void PrecacheParticles()
 {
 	if(g_iCustomParticlesCount > 1)
 	{
+		PrecacheEffect("ParticleEffect");
+		
 		for(int i = 1; i < g_iCustomParticlesCount; i++)
 		{
 			if(!IsModelPrecached(g_eCustomParticles[i][szParticleName]))
 			{	
 				g_eCustomParticles[i][iCacheID] = PrecacheGeneric(g_eCustomParticles[i][szParticleName], true);
 				AddFileToDownloadsTable(g_eCustomParticles[i][szParticleName]);
+				
+				PrecacheParticleEffect(g_eCustomParticles[i][szEffectName]);
 			}
 		}
 	}
-}
+} 
 
 public Action Particles_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
 {
@@ -313,7 +317,7 @@ public Action Particles_PlayerTeam(Handle event, const char[] name, bool dontBro
 
 public Action Timer_CreateParticle(Handle timer, any iClient)
 {
-	if(IsPlayerAlive(iClient))
+	if(IsValidClient(iClient) && IsPlayerAlive(iClient))
 		CreateCustomParticle(iClient);		
 }
 
@@ -428,7 +432,45 @@ public bool LoadAurasFromConfig()
 	return true;
 }
 
-/* STOCK */
+/* STOCKS */
+/**
+ * Fix for "Attempted to precache unknown particle system"
+ * https://forums.alliedmods.net/showpost.php?p=2471747&postcount=4
+ *
+ * @param sEffectName		"ParticleEffect".
+ * @noreturn
+ */
+stock void PrecacheEffect(const char[] sEffectName)
+{
+    static int table = INVALID_STRING_TABLE;
+    
+    if (table == INVALID_STRING_TABLE)
+        table = FindStringTable("EffectDispatch");
+	
+    bool save = LockStringTables(false);
+    AddToStringTable(table, sEffectName);
+    LockStringTables(save);
+}
+
+/**
+ * Fix for "Attempted to precache unknown particle system"
+ * https://forums.alliedmods.net/showpost.php?p=2471747&postcount=4
+ *
+ * @param sEffectName		String containing particle effect name.
+ * @noreturn
+ */
+stock void PrecacheParticleEffect(const char[] sEffectName)
+{
+    static int table = INVALID_STRING_TABLE;
+    
+    if (table == INVALID_STRING_TABLE)
+        table = FindStringTable("ParticleEffectNames");
+	
+    bool save = LockStringTables(false);
+    AddToStringTable(table, sEffectName);
+    LockStringTables(save);
+}
+
 stock bool IsValidClient(int iClient, bool noBots = true)
 { 
     if (iClient <= 0 || iClient > MaxClients || !IsClientConnected(iClient) || !IsClientAuthorized(iClient) || (noBots && IsFakeClient(iClient)))
