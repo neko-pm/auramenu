@@ -74,9 +74,6 @@ public void OnPluginStart()
 	HookEvent("player_spawn", Particles_PlayerSpawn);
 	HookEvent("player_death", Particles_PlayerDeath);
 	HookEvent("player_team", Particles_PlayerTeam, EventHookMode_Post);
-	
-	//for late load
-	for(int i = 1; i <= MaxClients; i++){ if(IsValidClient(i) && IsPlayerAlive(i)){ OnClientCookiesCached(i); CreateCustomParticle(i); }}
 }
 
 public void OnPluginEnd()
@@ -202,6 +199,7 @@ public Action Command_HideAuras(int iClient, int iArgs)
 		SetCookie(iClient, g_hCookieBlocked, g_bBlockTransmit[iClient]);
 		PrintToChat(iClient, "%t", "Chat Auras Enabled"); //"\x01[\x0BAura\x01] You can now see \x04Auras"
 	}
+	return Plugin_Handled;
 }
 
 public Action Command_ReloadAuras(int iClient, int iArgs)
@@ -227,15 +225,35 @@ public void ClientPref_PurgeCallback(Handle owner, Handle handle, const char[] e
 }
 
 /* CLIENTPREF */
-public void OnClientCookiesCached(int iClient)
+public void OnClientPutInServer(int iClient)
 {
-	char[] strCookie = new char[4];
+	if (IsValidClient(iClient) && !IsFakeClient(iClient))
+	{
+		char[] strCookie = new char[4];
 	
-	GetClientCookie(iClient, g_hCookieIndex, strCookie, 4);
-	g_iAuraIndex[iClient] = StringToInt(strCookie);
+		GetClientCookie(iClient, g_hCookieIndex, strCookie, 4);
+		if(!StrEqual(strCookie, ""))
+		{
+			g_iAuraIndex[iClient] = StringToInt(strCookie);
+		}
+		if(StrEqual(strCookie,""))
+		{
+			g_iAuraIndex[iClient] = 0;
+		}
+		
 	
-	GetClientCookie(iClient, g_hCookieBlocked, strCookie, 4);
-	g_bBlockTransmit[iClient] = view_as<bool>(StringToInt(strCookie));
+		GetClientCookie(iClient, g_hCookieBlocked, strCookie, 4);
+		if(!StrEqual(strCookie, ""))
+		{
+			g_bBlockTransmit[iClient] = view_as<bool>(StringToInt(strCookie));
+		}
+		if(StrEqual(strCookie,""))
+		{
+			g_bBlockTransmit[iClient] = false;
+		}
+	
+		CreateCustomParticle(iClient);
+	}
 }
 
 public void SetCookie(int iClient, Handle hCookie, int n)
