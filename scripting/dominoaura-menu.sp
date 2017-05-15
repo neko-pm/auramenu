@@ -202,6 +202,7 @@ public Action Command_HideAuras(int iClient, int iArgs)
 		SetCookie(iClient, g_hCookieBlocked, g_bBlockTransmit[iClient]);
 		PrintToChat(iClient, "%t", "Chat Auras Enabled"); //"\x01[\x0BAura\x01] You can now see \x04Auras"
 	}
+	return Plugin_Handled;
 }
 
 public Action Command_ReloadAuras(int iClient, int iArgs)
@@ -227,15 +228,30 @@ public void ClientPref_PurgeCallback(Handle owner, Handle handle, const char[] e
 }
 
 /* CLIENTPREF */
+public void OnClientPostAdminCheck(int iClient)
+{
+	if(AreClientCookiesCached(iClient))
+		OnClientCookiesCached(iClient);
+}
+
 public void OnClientCookiesCached(int iClient)
 {
+	if(!IsValidClient(iClient))
+		return;
+	
 	char[] strCookie = new char[4];
 	
 	GetClientCookie(iClient, g_hCookieIndex, strCookie, 4);
-	g_iAuraIndex[iClient] = StringToInt(strCookie);
+	if(StrEqual(strCookie, ""))
+		g_iAuraIndex[iClient] = 0;
+	else
+		g_iAuraIndex[iClient] = StringToInt(strCookie);
 	
 	GetClientCookie(iClient, g_hCookieBlocked, strCookie, 4);
-	g_bBlockTransmit[iClient] = view_as<bool>(StringToInt(strCookie));
+	if(StrEqual(strCookie, ""))
+		g_bBlockTransmit[iClient] = false;
+	else
+		g_bBlockTransmit[iClient] = view_as<bool>(StringToInt(strCookie));
 }
 
 public void SetCookie(int iClient, Handle hCookie, int n)
