@@ -43,6 +43,7 @@ bool g_bBlockTransmit[MAXPLAYERS+1] = false;
 
 ConVar g_cvHideUnavailable;
 ConVar g_cvCreateTimer;
+ConVar g_cvReopenMenu;
 
 char sPath[PLATFORM_MAX_PATH];
 
@@ -63,8 +64,9 @@ public void OnPluginStart()
 	g_hCookieIndex		= RegClientCookie("aura_index", "cookie for auras preference", CookieAccess_Private);
 	g_hCookieBlocked	= RegClientCookie("aura_blocked", "cookie for block preference", CookieAccess_Private);
 	
-	g_cvHideUnavailable = CreateConVar("aura_hideunavailable", "1.0", "Should menu items be hiden if unavailable?", _, true, 0.0, true, 1.0);
+	g_cvHideUnavailable = CreateConVar("aura_hideunavailable", "1.0", "Should menu items be hidden if unavailable?", _, true, 0.0, true, 1.0);
 	g_cvCreateTimer		= CreateConVar("aura_createtimer", "3.0", "How long after spawn should the particles be created?", _, true, 0.0, true, 30.0);
+	g_cvReopenMenu		= CreateConVar("aura_reopen_menu", "0", "Should menu be reopened after selecting an aura?", _, true, 0.0, true, 1.0);
 	
 	BuildPath(Path_SM, sPath, PLATFORM_MAX_PATH, "configs/dominoaura.cfg");
 	
@@ -135,6 +137,9 @@ public int MenuHandler_Aura(Menu menu, MenuAction action, int param1, int param2
 			CreateCustomParticle(param1);
 			
 			SetCookie(param1, g_hCookieIndex, g_iAuraIndex[param1]);
+			
+			if(g_cvReopenMenu.IntValue > 0)
+				DisplayMenuAtItem(menu, param1, GetMenuSelectionPosition(), MENU_TIME_FOREVER);
 		}
 		case MenuAction_DisplayItem:
 		{
