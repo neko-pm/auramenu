@@ -184,10 +184,6 @@ public int MenuHandler_Aura(Menu menu, MenuAction action, int param1, int param2
 				return ITEMDRAW_DISABLED;
 			}
 		}
-		case MenuAction_End:
-		{
-			CloseHandle(menu);
-		}
 	}
 	return 0;
 }
